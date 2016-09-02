@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="DebugCode" type="MAC" languagemode="0"><![CDATA[
+	Write "Uso incorreto.",!
+	QUIT
+
+#include %occConstant
+
+DebugCode(pIndice = "",pMensagem = "", pCommand = "", pGlobalDebug = "^CacheTemp.Debug") PUBLIC {
+	LOCK EscreverDebugLock // Pega o LOCK
+	Set NL = $$$NL
+	If (pMensagem '= ""){
+		If ('$ISOBJECT(pMensagem)){
+			Set:(pIndice = "") pIndice = "Msg"
+			Set posicao = $INCREMENT(@pGlobalDebug)
+			Set @pGlobalDebug@($MVOCONV(posicao, "MR%7"), pIndice) = pMensagem
+		}Else{
+			Set:(pIndice = "") pIndice = "Obj"
+			
+			// "Pega" um documento novo
+			// Ver documentação: DocBook.UI.Page.cls?KEY=GIOD_spool
+			Set pDocumento = $ORDER(^SPOOL(""), -1) + 1
+			
+			KILL ^SPOOL(pDocumento)
+			OPEN 2:(pDocumento)
+			USE 2
+				Do $SYSTEM.OBJ.Dump(pMensagem)
+			CLOSE 2
+			
+			// Separa a última key
+			// Ver documentação: DocBook.UI.Page.cls?KEY=GIOD_spool
+			Set lastKey = $ORDER(^SPOOL(pDocumento, ""), -1)
+			If (lastKey '= ""){
+				Set key = ""
+				Set key = $ORDER(^SPOOL(pDocumento, key))
+				While (key '= ""){
+					If (key '= lastKey){
+						Set posicao = $INCREMENT(@pGlobalDebug)
+						Set strLinha = $GET(^SPOOL(pDocumento, key), "")
+						Set strLinha = $REPLACE(strLinha, NL, "")
+						Set @pGlobalDebug@($MVOCONV(posicao, "MR%7"), pIndice) = strLinha
+					}
+					Set key = $ORDER(^SPOOL(pDocumento, key))
+				}
+				If (strLinha '= "+-----------------------------------------------------"){
+					Set posicao = $INCREMENT(@pGlobalDebug)
+					Set @pGlobalDebug@($MVOCONV(posicao, "MR%7"), pIndice) = "+-----------------------------------------------------"
+				}
+			}
+			KILL ^SPOOL(pDocumento) // Limpa o documento do SPOOL
+		}
+	}ElseIf (pCommand '= ""){
+		Set:(pIndice = "") pIndice = "Command"
+		
+		// "Pega" um documento novo
+		// Ver documentação: DocBook.UI.Page.cls?KEY=GIOD_spool
+		Set pDocumento = $ORDER(^SPOOL(""), -1) + 1
+		
+		KILL ^SPOOL(pDocumento)
+		OPEN 2:(pDocumento)
+		USE 2
+			XECUTE pCommand
+		CLOSE 2
+		
+		// Separa a última key
+		// Ver documentação: DocBook.UI.Page.cls?KEY=GIOD_spool
+		Set lastKey = $ORDER(^SPOOL(pDocumento, ""), -1)
+		If (lastKey '= ""){
+			Set key = ""
+			Set key = $ORDER(^SPOOL(pDocumento, key))
+			While (key '= ""){
+				If (key '= lastKey){
+					Set posicao = $INCREMENT(@pGlobalDebug)
+					Set strLinha = $GET(^SPOOL(pDocumento, key), "")
+					Set strLinha = $REPLACE(strLinha, NL, "")
+					Set @pGlobalDebug@($MVOCONV(posicao, "MR%7"), pIndice) = strLinha
+				}
+				Set key = $ORDER(^SPOOL(pDocumento, key))
+			}
+		}
+		KILL ^SPOOL(pDocumento) // Limpa o documento do SPOOL
+	}Else{
+		Set:(pIndice = "") pIndice = "Msg"
+		Set posicao = $INCREMENT(@pGlobalDebug)
+		Set @pGlobalDebug@($MVOCONV(posicao, "MR%7"), pIndice) = ""
+	}
+	LOCK // Libera o LOCK
+}
+
+	/*
+ClassMethod EscreverDebug(pIndice = "", pMensagem = "")
+{
+	Do DebugCode^DebugCode(pIndice, pMensagem, "^CacheTempP")
+}
+	*/
+]]></Routine>
+</Export>

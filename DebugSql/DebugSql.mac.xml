@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="DebugSql" type="MAC" languagemode="0"><![CDATA[
+#DEFINE DATE $ZDATE($PIECE($H, ",", 1), 3)
+#DEFINE TIME $ZTIME($PIECE($H, ",", 2), 1)
+	Write "Uso incorreto.",!
+	QUIT
+	
+DebugSql(pSql,pInfo) PUBLIC {
+	#DIM pInfo As %ZEN.Auxiliary.QueryInfo
+	Set pSqlRetorno = ""
+	Set data = $$$DATE
+	Set hora = $$$TIME
+	Try{
+		Set paramAtual = 0
+		Set pSqlAux = pSql
+		FOR i=1:1:$LENGTH(pSqlAux) {
+			Set letra = $EXTRACT(pSqlAux, i)
+			If (letra = "?"){
+				Set paramAtual = $INCREMENT(paramAtual)
+				Set param = $GET(pInfo.parms(paramAtual), "")
+				If ((param '= "") && ($LISTVALID(param))){
+					If ('($LISTSAME(param, $LB()))){
+						Set info = $LTS(param, ",")
+						Set pSqlRetorno = pSqlRetorno _ "$LISTFROMSTRING('" _ info _ "')"
+					}Else{
+						Set pSqlRetorno = pSqlRetorno _ "$LISTFROMSTRING('')"
+					}
+				}Else{
+					Set pSqlRetorno = pSqlRetorno _ "'" _ param _ "'"
+				}
+			}Else{
+			Set pSqlRetorno = pSqlRetorno _ letra
+			}
+		}
+		Do RegistrarDebug(pSqlRetorno, "")
+	}Catch(ex){
+		Set pSqlRetorno = ""
+		Do RegistrarDebug("", ex.DisplayString())
+	}
+	Quit pSqlRetorno
+}
+
+DebugSql2(pSql,pParam) PUBLIC {
+	Set pSqlRetorno = ""
+	Set data = $$$DATE
+	Set hora = $$$TIME
+	Try{
+		Set paramAtual = 0
+		Set pSqlAux = pSql
+		FOR i=1:1:$LENGTH(pSqlAux) {
+			Set letra = $EXTRACT(pSqlAux, i)
+			If (letra = "?"){
+				Set paramAtual = $INCREMENT(paramAtual)
+				Set param = $GET(pParam(paramAtual), "")
+				If ((param '= "") && ($LISTVALID(param))){
+					If ('($LISTSAME(param, $LB()))){
+						Set info = $LTS(param, ",")
+						Set pSqlRetorno = pSqlRetorno _ "$LISTFROMSTRING('" _ info _ "')"
+					}Else{
+						Set pSqlRetorno = pSqlRetorno _ "$LISTFROMSTRING('')"
+					}
+				}Else{
+					Set pSqlRetorno = pSqlRetorno _ "'" _ param _ "'"
+				}
+			}Else{
+			Set pSqlRetorno = pSqlRetorno _ letra
+			}
+		}
+		Do RegistrarDebug(pSqlRetorno, "")
+	}Catch(ex){
+		Set pSqlRetorno = ""
+		Do RegistrarDebug("", ex.DisplayString())
+	}
+	Quit pSqlRetorno
+}
+
+RegistrarDebug(pSql = "", pErro = "") PUBLIC {
+	Set Posicao = $INCREMENT(^CacheTemp.SqlDebug)
+	
+	Set data = $$$DATE
+	Set hora = $$$TIME
+	
+	Set ^CacheTemp.SqlDebug(Posicao, "Data") = Data
+	Set ^CacheTemp.SqlDebug(Posicao, "Hora") = Hora
+	Set:(pSql '= "") ^CacheTemp.SqlDebug(Posicao, "Sql")   = pSql
+	Set:(pErro '= "") ^CacheTemp.SqlDebug(Posicao, "Erro") = pErro
+}
+]]></Routine>
+</Export>

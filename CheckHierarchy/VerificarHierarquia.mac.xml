@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="VerificarHierarquia" type="MAC" languagemode="0"><![CDATA[
+#INCLUDE %occStatus
+#INCLUDE %occErrors
+	Set ret = $$VerificarHierarquia^VerificarHierarquia()
+	QUIT
+
+VerificarHierarquia() PUBLIC {
+	Try{
+		KILL ^||Nivel, ^||ControleRecursivo, ^||ErrosEncontrados
+		Set lPacotes = $LISTBUILD("")
+		FOR i=1:1:$LISTLENGTH(lPacotes){
+			Set pacote = $LISTGET(lPacotes, i)
+			Write $$GetNivelStr() _ "Pacote: " _ pacote,!
+			KILL itens
+			Set status = $SYSTEM.OBJ.GetPackageList(.itens, pacote)
+			Set classe = ""
+			Set classe = $ORDER(itens(classe))
+			Do NivelUp()
+			While (classe '= ""){
+				If (##class(%Dictionary.ClassDefinition).%ExistsId(classe)){
+					KILL ^||ControleRecursivo
+					Write $$GetNivelStr(), "Classe referência: ", classe,!
+					Do LoopHierarquia(classe, classe)
+				}
+				Set classe = $ORDER(itens(classe))
+			}
+			Do NivelDown()
+			KILL itens
+		}
+		
+		Write !,!,!
+		
+		If ($GET(^||ErrosEncontrados, 0) > 0){
+			Set index = ""
+			Set index = $ORDER(^||ErrosEncontrados(index))
+			While(index '= ""){
+				Set lInfo = $GET(^||ErrosEncontrados(index))
+				
+				Write "Classe referência: '" _ $LG(lInfo,1) _ "'",!
+				Write "Classe Erro: '" _ $LG(lInfo,2) _ "'",!
+				Write "Propriedade: '" _ $LG(lInfo,3) _ "'",!
+				Write !
+				
+				Set index = $ORDER(^||ErrosEncontrados(index))
+			}
+		}Else{
+			Write "Sem erros."
+		}
+	}Catch(ex){
+		Write !,!,!,"Erro: ",ex.DisplayString(),!,!,!
+	}
+	Quit 1
+}
+
+NivelUp() PRIVATE {
+	Write $$GetNivelStr(),"{",!
+	Set ^||Nivel = $I(^||Nivel)
+}
+NivelDown() PRIVATE {
+	Set ^||Nivel = $I(^||Nivel, -1)
+	Write $$GetNivelStr(),"}",!
+}
+
+GetNivelStr() PRIVATE {
+	Set retorno = ""
+	If ($GET(^||Nivel, 0) > 0){
+		Set retorno = "" // " "
+		FOR i=1:1:$GET(^||Nivel, 0){
+			Set retorno = retorno _ $C(9) // "-"
+		}
+		Set retorno = retorno _ "" // " "
+	}
+	Quit retorno
+}
+
+LoopHierarquia(pClasse, pClasseReferencia) PRIVATE {
+	Set classDef = ##class(%Dictionary.ClassDefinition).%OpenId(pClasse)
+	If ($ISOBJECT(classDef)){
+		Do NivelUp()
+		FOR i=1:1:classDef.Properties.Count() {
+			#DIM propDef As %Dictionary.PropertyDefinition = classDef.Properties.GetAt(i)
+			If ($EXTRACT(propDef.Type, 1, 4) = "****"){
+				Set doLoop = 0
+				Write $$GetNivelStr(), "Classe: ",propDef.Type, " [",propDef.Name,"]"
+				If ($GET(^||ControleRecursivo(pClasse, propDef.Type), 0) = 0){
+					Set doLoop = 1
+				}Else{
+					Write " (",pClasse," -> ", propDef.Type ,")"
+				}
+				
+				If ((pClasse '= pClasseReferencia) && (pClasseReferencia = propDef.Type)){
+					Write " [ERRO]"
+					// $$$ThrowStatus($$$ERROR($$$GeneralError, "Classe referência: '" _ pClasseReferencia _ "' - Classe Erro: '" _ pClasse _ "' - Propriedade: '" _ propDef.Name _ "'"))
+				}
+				Write !
+				
+				If (doLoop){
+					If ((pClasse '= pClasseReferencia) && (pClasseReferencia = propDef.Type)){
+						Set lInfoErro = $LISTBUILD(pClasseReferencia, pClasse, propDef.Name)
+						Set indexErro = $INCREMENT(^||ErrosEncontrados)
+						Set ^||ErrosEncontrados(indexErro) = lInfoErro
+					}
+					
+					Set ^||ControleRecursivo(pClasse, propDef.Type) = 1
+					Do LoopHierarquia(propDef.Type, pClasseReferencia)
+				}
+			}
+		}
+		Do NivelDown()
+	}Else{
+		Write $$GetNivelStr(), "Erro: ",pClasse," não encontrada"
+	}
+	Quit 1
+}
+]]></Routine>
+</Export>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="BuscarSymlinks" type="MAC" languagemode="0"><![CDATA[
+	Do VerificarDerives()
+	KILL %levelAtual, rs
+
+
+VerificarDerives() PRIVATE {
+	Set rs = ##class(%ResultSet).%New()
+	Set rs.ClassName = "%File"
+	Set rs.QueryName = "DriveList"
+	Do rs.Execute(1)
+	While (rs.Next()){
+		Set Drive = rs.Data("Drive")
+		Do VerificarPasta(Drive)
+	}
+}
+
+VerificarPasta(pPasta) PRIVATE {
+	Set local = pPasta
+	Set rs = ##class(%ResultSet).%New()
+	Set rs.ClassName = "%File"
+	Set rs.QueryName = "FileSet"
+	Do rs.Execute(local, "*", "", 1, ";")
+	While (rs.Next()){
+		Set path = rs.Data("Name")
+		Set type = rs.Data("Type")
+		Set Attributes = ##class(%File).Attributes(path)
+		If ((Attributes >= 1024) && (Attributes < 2048)){
+			Set isDir = (((Attributes - 1024) >= 16) && ((Attributes - 1024) < 32))
+			Set isFile  = (((Attributes - 1024) >= 32) && ((Attributes - 1024) < 64))
+			Write path," (",##class(%File).Attributes(path), ")"
+			If (isFile){
+				Write " [Arquivo]"
+			}else{
+				Write " [Pasta]"
+			}
+			Write !
+		}
+		
+		If (type = "D"){
+			If ($GET(%levelAtual, 0) < 5000){ // %maxLevel
+				Set %levelAtual = $I(%levelAtual)
+				Do VerificarPasta(path)
+				Set %levelAtual = $I(%levelAtual, -1)
+			}Else{
+				Write "SKIP -> ",path
+			}
+		}
+	}
+}
+]]></Routine>
+</Export>

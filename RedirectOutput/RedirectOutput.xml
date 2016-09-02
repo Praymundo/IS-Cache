@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Routine name="RedirectOutput" type="MAC" languagemode="0"><![CDATA[
+#INCLUDE %occStatus
+#INCLUDE %occConstant
+#DEFINE GlbName CacheTempOutput
+#DEFINE GlbSystem ^$$$GlbName
+#DEFINE GlbProcess ^||$$$GlbName
+#DEFINE IdxMaster $$$GetProcessConfigD("IdxMaster", $JOB)
+#DEFINE IdxOutput "Output"
+#DEFINE IdxConfig "Config"
+#DEFINE ProcessConfig(%var) $$$GlbProcess($$$IdxConfig, %var)
+#DEFINE SetProcessConfig(%var, %value) Set $$$ProcessConfig(%var) = %value
+#DEFINE GetProcessConfig(%var) $GET($$$ProcessConfig(%var))
+#DEFINE GetProcessConfigD(%var, %def) $GET($$$ProcessConfig(%var), %def)
+#DEFINE Config(%var) $$$GlbSystem($$$IdxMaster, $$$IdxConfig, %var)
+#DEFINE SetConfig(%var, %value) Set $$$Config(%var) = %value
+#DEFINE GetConfig(%var) $GET($$$Config(%var))
+#DEFINE GetConfigD(%var, %def) $GET($$$Config(%var), %def)
+#DEFINE IsStarted ($$$GetConfigD("Started", 0) = 1)
+#DEFINE Output $$$GlbSystem($$$IdxMaster, $$$IdxOutput)
+#DEFINE OutputV(%var) $$$GlbSystem($$$IdxMaster, $$$IdxOutput, %var)
+#DEFINE DoOutput(%value) Set $$$OutputV($I($$$Output)) = %value
+#DEFINE GetOutput(%var) $GET($$$OutputV(%var))
+
+Start(pClean = 1) PUBLIC {
+	If ('$$$IsStarted) {
+		Do:(pClean) Clean()
+		$$$SetConfig("InitIO", $IO)
+		USE $IO::("^" _ $ZNAME)
+		Do ##class(%Device).ReDirectIO(1)
+		$$$SetConfig("Started", 1)
+	}
+	QUIT 1
+}
+
+End(pClean = 0) PUBLIC {
+	If (($$$IsStarted) && (##class(%Device).ReDirectIO(0))) {
+		USE $$$GetConfig("InitIO")
+	}
+	$$$SetConfig("Started", 0)
+	Do:(pClean) Clean()
+	QUIT 1
+}
+
+Clean() PUBLIC {
+	If ('$$$IsStarted) {
+		KILL $$$GlbSystem($$$IdxMaster)
+		KILL $$$GlbProcess
+		QUIT 1
+	}
+	Quit 0
+}
+
+Rewind() PUBLIC {
+	$$$SetConfig("IdxActual", "")
+	Quit 1
+}
+
+MoveToStart() PUBLIC {
+	Quit $$Rewind()
+}
+
+MoveToEnd() PUBLIC {
+	Set idxLast = $ORDER($$$OutputV(""), -1)
+	$$$SetConfig("IdxActual", idxLast)
+	Quit 1
+}
+
+Read() PUBLIC {
+	Quit $$Next()
+}
+
+Next(&pValue = "") PUBLIC {
+	Set idxActual = $$$GetConfig("IdxActual")
+	Set idxActual = $ORDER($$$OutputV(idxActual))
+	$$$SetConfig("IdxActual", idxActual)
+	Set pValue = $$GetOutput()
+	Quit (idxActual '= "")
+}
+
+Previous(&pValue = "") PUBLIC {
+	Set idxActual = $$$GetConfig("IdxActual")
+	If (idxActual = "") QUIT 0
+	Set idxActual = $ORDER($$$OutputV(idxActual), -1)
+	$$$SetConfig("IdxActual", idxActual)
+	Set pValue = $$GetOutput()
+	Quit (idxActual '= "")
+}
+
+GetOutput() PUBLIC {
+	Set idxActual = $$$GetConfig("IdxActual")
+	If (idxActual = "") QUIT ""
+	QUIT $$$GetOutput(idxActual)
+}
+
+SetConfig(pVar, pValue) PUBLIC {
+	If ($$$IdxMaster '= $JOB) QUIT 0
+	$$$SetConfig(pVar, pValue)
+	QUIT 1
+}
+
+GetConfig(pVar, pDefValue = "") PUBLIC {
+	If ($$$IdxMaster '= $JOB) QUIT ""
+	QUIT $$$GetConfigD(pVar, pDefValue)
+}
+
+SetProcessConfig(pVar, pValue) PUBLIC {
+	$$$SetProcessConfig(pVar, pValue)
+	QUIT 1
+}
+
+GetProcessConfig(pVar, pDefValue = "") PUBLIC {
+	Quit $$$GetConfigD(pVar, pDefValue)
+}
+
+SetIdxMaster(pValue) PUBLIC {
+	Quit $$SetProcessConfig("IdxMaster", pValue)
+}
+
+#; Public entry points for redirection
+redirects() PUBLIC { QUIT }
+wstr(s) PUBLIC { // Write string (W "Something")
+	$$$DoOutput(s)
+	Quit
+}
+wchr(a) PUBLIC { // Write char (???)
+	$$$DoOutput($CHAR(a))
+	Quit
+}
+wnl() PUBLIC { // Write New Line (W !)
+	$$$DoOutput($$$NL)
+	Quit
+}
+wff() PUBLIC { // Write FastForward (W #)
+	$$$DoOutput($$$NL _ $$$NL)
+	Quit
+}
+wtab(n) /* [ chars "digited caracter?" ] */ PUBLIC { // Write tab (???)
+	$$$DoOutput($$$TAB)
+	Quit
+}
+rstr(len,time) PUBLIC { // Read string
+	Quit ""
+}
+rchr(time) PUBLIC { // Read char
+	Quit ""
+}
+]]></Routine>
+</Export>
